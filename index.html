@@ -5,113 +5,115 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CipherChat P2P — Serverless Encrypted Messenger</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#f6f7f9">
+<meta name="theme-color" content="#008069">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
-  /* CipherChat — light, minimal, messenger-style UI (inspired by modern
-     messengers; original implementation, not a copy of any app's code) */
+  /* CipherChat — messenger-style UI (inspired by modern chat apps;
+     original implementation, not a copy of any app's code or assets) */
   :root {
-    --bg: #f6f7f9;
+    --green: #008069;
+    --green-deep: #01705c;
+    --accent: #00a884;
+    --accent-deep: #008f70;
+    --bg: #f0f2f5;
     --surface: #ffffff;
-    --surface-2: #f1f3f6;
-    --surface-3: #e9ecf1;
-    --border: #e5e8ec;
-    --border-strong: #d5dae1;
-    --text: #0d1117;
-    --text-dim: #535a64;
-    --text-faint: #9aa2ad;
-    --alice: #3b6fe0;
-    --alice-dim: #e9effc;
-    --alice-border: #b9cdf3;
-    --bob: #a05e0a;
-    --bob-dim: #fbf1e0;
-    --bob-border: #e8d2a8;
+    --surface-2: #f5f6f6;
+    --border: #e9edef;
+    --border-strong: #d1d7db;
+    --text: #111b21;
+    --text-dim: #667781;
+    --text-faint: #8696a0;
+    --chat-bg: #efeae2;
+    --bubble-out: #d9fdd3;
+    --bubble-in: #ffffff;
+    --pill-bg: #ffffff;
+    --pill-text: #54656f;
+    --e2ee-bg: #ffeecd;
+    --e2ee-text: #5b5348;
+    --tick: #53bdeb;
     --danger: #d93953;
     --danger-dim: rgba(217,57,83,0.08);
     --danger-border: rgba(217,57,83,0.35);
-    --ok: #0e9256;
-    --ok-dim: rgba(14,146,86,0.08);
-    --ok-border: rgba(14,146,86,0.35);
-    --shadow: 0 1px 2px rgba(13,17,23,0.04), 0 6px 18px rgba(13,17,23,0.06);
+    --ok: #00a884;
+    --shadow: 0 1px 0.5px rgba(11,20,26,0.13);
     --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Courier New', monospace;
+    --font-mono: ui-monospace, 'SF Mono', 'Courier New', monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #101418;
-      --surface: #1a2028;
-      --surface-2: #222935;
-      --surface-3: #2b3341;
-      --border: rgba(255,255,255,0.09);
+      --bg: #111b21;
+      --surface: #202c33;
+      --surface-2: #2a3942;
+      --border: rgba(255,255,255,0.08);
       --border-strong: rgba(255,255,255,0.16);
-      --text: #eef1f5;
-      --text-dim: #a4aebc;
-      --text-faint: #6b7686;
-      --alice: #6b96ec;
-      --alice-dim: rgba(107,150,236,0.14);
-      --alice-border: rgba(107,150,236,0.40);
-      --bob: #f0b35c;
-      --bob-dim: rgba(240,179,92,0.10);
-      --bob-border: rgba(240,179,92,0.35);
+      --text: #e9edef;
+      --text-dim: #8696a0;
+      --text-faint: #667781;
+      --chat-bg: #0b141a;
+      --bubble-out: #005c4b;
+      --bubble-in: #202c33;
+      --pill-bg: #182229;
+      --pill-text: #8696a0;
+      --e2ee-bg: #182229;
+      --e2ee-text: #ffd279;
       --danger: #f07a89;
       --danger-dim: rgba(240,122,137,0.10);
       --danger-border: rgba(240,122,137,0.40);
       --ok: #57c98d;
-      --ok-dim: rgba(87,201,141,0.10);
-      --ok-border: rgba(87,201,141,0.35);
       --shadow: none;
     }
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { height: 100%; }
   body {
     font-family: var(--font-body);
     background: var(--bg);
     color: var(--text);
-    min-height: 100vh;
+    min-height: 100%;
     -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 760px; margin: 0 auto; padding: 36px 20px 80px; }
+  .wrap { max-width: 830px; margin: 0 auto; padding: 0 18px 70px; }
 
-  header { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; margin-bottom: 8px; }
-  .title-block { flex: 1 1 320px; }
-  .brand { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.16em; color: var(--alice); font-weight: 600; }
-  h1 { font-size: clamp(24px, 3.6vw, 32px); font-weight: 700; letter-spacing: -0.015em; margin-top: 6px; }
-  h1 .thin { color: var(--text-dim); font-weight: 400; }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  /* ---------- hero (start page) ---------- */
+  .hero { background: var(--green); margin: 0 -18px; padding: 42px 36px 96px; color: #ffffff; }
+  .hero .brand { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; color: rgba(255,255,255,0.75); font-weight: 600; }
+  .hero h1 { font-size: clamp(26px, 4vw, 36px); font-weight: 700; letter-spacing: -0.015em; margin-top: 8px; color: #ffffff; }
+  .hero h1 .thin { color: rgba(255,255,255,0.85); font-weight: 400; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
   .chip {
     font-size: 12px; padding: 5px 12px;
-    border: 1px solid var(--border); border-radius: 999px; color: var(--text-dim);
-    background: var(--surface); white-space: nowrap;
+    border: 1px solid rgba(255,255,255,0.28); border-radius: 999px;
+    color: rgba(255,255,255,0.92); background: rgba(255,255,255,0.08); white-space: nowrap;
   }
-  .chip b { color: var(--text); font-weight: 600; }
-  .lead { color: var(--text-dim); font-size: 15px; max-width: 640px; margin: 14px 0 26px; line-height: 1.65; }
-  .lead b { color: var(--text); }
+  .chip b { color: #ffffff; font-weight: 600; }
+  .lead { color: rgba(255,255,255,0.88); font-size: 14.5px; max-width: 620px; margin: 14px 0 0; line-height: 1.65; }
+  .lead b { color: #ffffff; }
 
   .ve-card {
     background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-    padding: 22px 24px; margin-bottom: 18px; position: relative; overflow: hidden;
-    box-shadow: var(--shadow);
+    padding: 22px 24px; margin-bottom: 18px; box-shadow: var(--shadow);
   }
+  #viewStart .ve-card { margin-top: -56px; }
   .section-label {
     font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
-    color: var(--text-dim); display: flex; align-items: center; gap: 8px;
-    margin-bottom: 16px;
+    color: var(--text-dim); display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
   }
-  .section-label .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--alice); }
+  .section-label .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
 
   /* ---------- start view ---------- */
   .role-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .role-btn {
-    text-align: left; background: var(--surface); border: 1px solid var(--border-strong);
-    border-radius: 12px; padding: 20px; cursor: pointer; transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    text-align: left; background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px; cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease;
     color: var(--text); font-family: var(--font-body);
   }
-  .role-btn:hover { transform: translateY(-2px); border-color: var(--alice); box-shadow: var(--shadow); }
-  .role-btn .rn { font-size: 11px; font-weight: 700; color: var(--alice); letter-spacing: 0.1em; margin-bottom: 8px; }
+  .role-btn:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .role-btn .rn { font-size: 11px; font-weight: 700; color: var(--accent); letter-spacing: 0.1em; margin-bottom: 8px; }
   .role-btn h3 { font-size: 15.5px; font-weight: 700; margin-bottom: 6px; }
   .role-btn p { font-size: 12.5px; color: var(--text-dim); line-height: 1.6; }
 
@@ -120,7 +122,7 @@
     background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px;
     padding: 16px 18px; margin-bottom: 12px;
   }
-  .step .sn { font-size: 11px; font-weight: 700; color: var(--alice); letter-spacing: 0.1em; margin-bottom: 6px; }
+  .step .sn { font-size: 11px; font-weight: 700; color: var(--accent); letter-spacing: 0.1em; margin-bottom: 6px; }
   .step h3 { font-size: 14.5px; font-weight: 700; margin-bottom: 6px; }
   .step p { font-size: 13px; color: var(--text-dim); line-height: 1.6; margin-bottom: 10px; }
   .step p.hindi { font-size: 12.5px; color: var(--text-faint); font-style: italic; }
@@ -130,16 +132,16 @@
     font-family: var(--font-mono); font-size: 11px; padding: 10px 12px; outline: none;
     word-break: break-all; line-height: 1.6;
   }
-  textarea.code:focus { border-color: var(--alice); }
-  .row { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+  textarea.code:focus { border-color: var(--accent); }
+  .row { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
   .btn {
-    font-family: var(--font-body); font-size: 13.5px; font-weight: 600; padding: 10px 18px; border-radius: 9px;
-    border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
-    cursor: pointer; transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    font-family: var(--font-body); font-size: 13.5px; font-weight: 600; padding: 10px 18px;
+    border-radius: 999px; border: 1px solid transparent; background: var(--surface-2); color: var(--text);
+    cursor: pointer; transition: background 0.15s ease, transform 0.15s ease;
   }
-  .btn:hover { transform: translateY(-1px); border-color: var(--text-faint); }
-  .btn.primary { background: var(--alice); border-color: var(--alice); color: #ffffff; }
-  .btn.primary:hover { filter: brightness(0.95); }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.primary { background: var(--accent); color: #ffffff; }
+  .btn.primary:hover { background: var(--accent-deep); }
   .btn.danger { background: var(--danger-dim); border-color: var(--danger-border); color: var(--danger); }
   .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
   .msg-error {
@@ -147,69 +149,83 @@
     border-radius: 10px; padding: 10px 14px; font-size: 13px; line-height: 1.5; margin-top: 12px;
   }
 
-  /* ---------- chat view ---------- */
-  .status-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-  .status-pill {
-    font-size: 12px; font-weight: 600; padding: 6px 12px;
-    border-radius: 999px; border: 1px solid var(--border-strong); color: var(--text-dim); display: flex; align-items: center; gap: 7px;
-    background: var(--surface);
-  }
-  .status-pill .sdot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); }
-  .status-pill.on { border-color: var(--ok-border); color: var(--ok); background: var(--ok-dim); }
-  .status-pill.on .sdot { background: var(--ok); }
-  .status-pill.bad { border-color: var(--danger-border); color: var(--danger); background: var(--danger-dim); }
-  .status-pill.bad .sdot { background: var(--danger); }
-  .name-input {
-    background: var(--surface); border: 1px solid var(--border-strong); border-radius: 9px;
-    color: var(--text); font-family: var(--font-body); font-size: 13px; padding: 8px 14px; outline: none; width: 180px;
-  }
-  .name-input:focus { border-color: var(--alice); }
+  /* ---------- chat screen (messenger layout, full viewport) ---------- */
+  #viewChat { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; background: var(--chat-bg); }
+  #viewChat.hidden { display: none !important; }
+  .mx-appbar { display: flex; align-items: center; gap: 12px; background: var(--green); color: #ffffff; padding: 10px 16px; flex: 0 0 auto; }
+  .mx-ava { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.14); display: flex; align-items: center; justify-content: center; flex: 0 0 40px; }
+  .mx-meta { flex: 1; min-width: 0; }
+  .mx-title { font-size: 16px; font-weight: 600; }
+  .mx-sub { font-size: 12px; color: rgba(255,255,255,0.85); display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+  .sdot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.6); display: inline-block; flex: 0 0 7px; }
+  .sdot.on { background: #7ef0b1; }
+  .sdot.bad { background: #ff9aa8; }
+  .mx-close { width: 36px; height: 36px; border-radius: 50%; border: none; background: transparent; color: #ffffff; cursor: pointer; display: flex; align-items: center; justify-content: center; flex: 0 0 36px; transition: background 0.15s ease; }
+  .mx-close:hover { background: rgba(255,255,255,0.14); }
+  .mx-strip { background: var(--surface); padding: 6px 12px; flex: 0 0 auto; display: flex; }
+  .name-input { flex: 1; background: var(--surface-2); border: 1px solid transparent; border-radius: 8px; color: var(--text); font-family: var(--font-body); font-size: 12.5px; padding: 7px 14px; outline: none; }
+  .name-input:focus { border-color: var(--accent); }
   .chat {
-    min-height: 300px; max-height: 440px; overflow-y: auto; padding: 16px;
-    display: flex; flex-direction: column; gap: 8px; background: var(--surface-2);
-    border: 1px solid var(--border); border-radius: 12px;
+    flex: 1; overflow-y: auto; padding: 14px 7% 10px; display: flex; flex-direction: column; gap: 3px;
+    background-color: var(--chat-bg);
+    background-image: radial-gradient(rgba(11,20,26,0.045) 1px, transparent 1.4px);
+    background-size: 21px 21px;
   }
+  @media (prefers-color-scheme: dark) {
+    .chat { background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1.4px); }
+  }
+
+  .e2ee-pill {
+    align-self: center; max-width: 82%; background: var(--e2ee-bg); color: var(--e2ee-text);
+    font-size: 12px; line-height: 1.5; border-radius: 8px; padding: 6px 12px; margin: 6px 0; text-align: center;
+  }
+  .sys, .date-div { align-self: center; background: var(--pill-bg); color: var(--pill-text); border-radius: 8px; padding: 5px 12px; margin: 4px 0; text-align: center; max-width: 82%; }
+  .date-div { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
+  .sys { font-size: 12px; line-height: 1.5; }
+
   .bubble {
-    max-width: 78%; padding: 9px 13px; border-radius: 16px; font-size: 14px; line-height: 1.5;
-    overflow-wrap: break-word; animation: fadeUp 0.25s ease both;
+    max-width: 78%; width: -moz-fit-content; width: fit-content;
+    padding: 6px 8px 8px 9px; border-radius: 7.5px; font-size: 14.2px; line-height: 1.45;
+    overflow-wrap: break-word; box-shadow: var(--shadow); position: relative;
+    animation: fadeUp 0.18s ease both; margin-top: 2px;
   }
-  .bubble .meta {
-    display: block; font-size: 9.5px; color: var(--text-faint);
-    margin-top: 4px; letter-spacing: 0.03em;
+  .bubble .meta { display: inline-block; float: right; margin: 10px 0 -4px 10px; font-size: 11px; color: var(--text-faint); white-space: nowrap; }
+  .own { align-self: flex-end; background: var(--bubble-out); }
+  .own .meta { color: rgba(17,27,33,0.45); }
+  .own .meta::after { content: '\2713\2713'; color: var(--tick); margin-left: 4px; font-size: 12px; }
+  .peer { align-self: flex-start; background: var(--bubble-in); }
+  .own::before { content: ''; position: absolute; top: 0; right: -7px; border: 7px solid transparent; border-top-color: var(--bubble-out); border-right: none; }
+  .peer::before { content: ''; position: absolute; top: 0; left: -7px; border: 7px solid transparent; border-top-color: var(--bubble-in); border-left: none; }
+
+  .verify-box { align-self: center; max-width: 400px; background: var(--bubble-in); border-radius: 8px; padding: 12px 16px; margin: 10px 0 6px; box-shadow: var(--shadow); }
+  .vb-title { font-size: 11.5px; font-weight: 700; color: var(--text-dim); margin-bottom: 6px; letter-spacing: 0.03em; }
+  .verify-num {
+    font-family: var(--font-mono); font-size: 15px; letter-spacing: 0.08em; color: var(--text);
+    background: var(--surface-2); border: 1px dashed var(--border-strong); border-radius: 8px;
+    padding: 10px 14px; text-align: center; margin: 6px 0; overflow-wrap: anywhere;
   }
-  .own { align-self: flex-end; border-bottom-right-radius: 5px; background: var(--alice); border: 1px solid var(--alice); color: #ffffff; }
-  .own .meta { color: rgba(255,255,255,0.75); }
-  .peer { align-self: flex-start; border-bottom-left-radius: 5px; background: var(--surface); border: 1px solid var(--border); }
-  .sys { align-self: center; font-size: 11.5px; color: var(--text-faint); font-style: italic; }
-  .composer { display: flex; gap: 8px; margin-top: 14px; align-items: center; }
+  .verify-note { font-size: 11.5px; color: var(--text-dim); line-height: 1.55; margin: 0; }
+
+  .composer { display: flex; gap: 8px; padding: 8px 16px 12px; align-items: center; flex: 0 0 auto; background: var(--chat-bg); }
   .composer input {
-    flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 999px;
-    color: var(--text); font-family: var(--font-body); font-size: 14px; padding: 11px 18px; outline: none;
+    flex: 1; min-width: 0; background: var(--surface); border: none; border-radius: 8px;
+    color: var(--text); font-family: var(--font-body); font-size: 15px; padding: 11px 16px; outline: none;
+    box-shadow: var(--shadow);
   }
-  .composer input:focus { border-color: var(--alice); }
+  .composer input:focus { outline: 2px solid var(--accent); }
   .btn-send {
-    width: 42px; height: 42px; flex: 0 0 42px;
-    border: none; border-radius: 50%; padding: 0;
-    cursor: pointer; background: var(--alice); color: #ffffff;
+    width: 42px; height: 42px; flex: 0 0 42px; border: none; border-radius: 50%; padding: 0;
+    cursor: pointer; background: var(--accent); color: #ffffff;
     display: flex; align-items: center; justify-content: center;
-    transition: filter 0.15s ease, transform 0.15s ease;
+    transition: background 0.15s ease, transform 0.15s ease;
   }
-  .btn-send:hover { filter: brightness(0.95); transform: translateY(-1px); }
+  .btn-send:hover { background: var(--accent-deep); transform: translateY(-1px); }
   .btn-send:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 
-  .verify-card { border-left: 3px solid var(--bob); }
-  .verify-num {
-    font-family: var(--font-mono); font-size: 16px; letter-spacing: 0.1em; color: var(--text);
-    background: var(--surface-2); border: 1px dashed var(--border-strong); border-radius: 10px;
-    padding: 12px 16px; text-align: center; margin: 10px 0; overflow-wrap: anywhere;
-  }
-  .verify-note { font-size: 12.5px; color: var(--text-dim); line-height: 1.65; }
-  .verify-note b { color: var(--text); }
-
-  /* limitations */
+  /* ---------- limitations ---------- */
   .lim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .lim-col { border-radius: 12px; padding: 16px 18px; border: 1px solid var(--border); min-width: 0; }
-  .lim-col.good { background: var(--ok-dim); border-color: var(--ok-border); }
+  .lim-col.good { background: rgba(0,168,132,0.06); border-color: rgba(0,168,132,0.35); }
   .lim-col.bad { background: var(--danger-dim); border-color: var(--danger-border); }
   .lim-col h3 { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
   .lim-col.good h3 { color: var(--ok); }
@@ -224,20 +240,20 @@
   .lim-col.bad li::before { background: var(--danger); }
   .lim-col li b { color: var(--text); }
   .callout {
-    margin-top: 14px; background: var(--surface-2); border-left: 3px solid var(--bob);
+    margin-top: 14px; background: var(--surface-2); border-left: 3px solid var(--green);
     border-radius: 0 10px 10px 0; padding: 13px 16px; font-size: 13px; color: var(--text-dim); line-height: 1.65;
   }
   .callout b { color: var(--text); }
 
-  /* version-mismatch popup */
+  /* ---------- version-mismatch popup ---------- */
   .ver-modal {
     position: fixed; inset: 0; z-index: 999;
-    background: rgba(13,17,23,0.5);
+    background: rgba(11,20,26,0.55);
     display: flex; align-items: center; justify-content: center; padding: 20px;
   }
   .ver-modal-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-    max-width: 400px; width: 100%; padding: 24px; box-shadow: 0 12px 40px rgba(13,17,23,0.25);
+    background: var(--surface); border-radius: 14px;
+    max-width: 400px; width: 100%; padding: 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.3);
     animation: fadeUp 0.25s ease both;
   }
   .ver-modal-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 10px; }
@@ -248,39 +264,36 @@
   .ver-actions .btn { width: 100%; padding: 11px 18px; }
 
   .hidden { display: none !important; }
-  #viewChat .ve-card { animation: fadeUp 0.4s ease both; }
 
   footer { margin-top: 36px; text-align: center; font-size: 11.5px; color: var(--text-faint); line-height: 2; }
 
-  @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
   @media (max-width: 720px) {
     .role-grid, .lim-grid { grid-template-columns: 1fr; }
-    .chat { max-height: 55vh; min-height: 260px; }
-    .bubble { max-width: 90%; }
+    .hero { padding: 34px 22px 84px; }
+    .chat { padding: 12px 12px 8px; }
+    .bubble { max-width: 86%; }
   }
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <header>
-    <div class="title-block">
-      <div class="brand">CIPHERCHAT / P2P — SERVERLESS</div>
-      <h1>Direct Device-to-Device <span class="thin">Encrypted Chat</span></h1>
-    </div>
+  <header class="hero">
+    <div class="brand">CIPHERCHAT / P2P — SERVERLESS</div>
+    <h1>Direct Device-to-Device <span class="thin">Encrypted Chat</span></h1>
     <div class="chips">
       <span class="chip"><b>Double ratchet</b> E2EE + DTLS</span>
       <span class="chip"><b>No server</b> stores anything</span>
       <span class="chip"><b>0 cost</b> forever</span>
     </div>
-  </header>
-
-  <p class="lead">
+    <p class="lead">
     Messages travel <b>directly between the two devices</b> over an encrypted peer-to-peer channel, sealed with a second end-to-end layer where <b>every message gets its own fresh key</b> —
     there is no server storing, relaying or logging anything. The only thing you need is one existing
     channel (WhatsApp, SMS, a phone call) to exchange two short connection codes once.
-  </p>
+    </p>
+  </header>
 
   <!-- ================= START VIEW ================= -->
   <div id="viewStart">
@@ -373,34 +386,35 @@
     </div>
   </div>
 
-  <!-- ================= CHAT VIEW ================= -->
+  <!-- ================= CHAT VIEW (messenger layout) ================= -->
   <div id="viewChat" class="hidden">
-    <div class="ve-card">
-      <div class="status-row">
-        <div class="status-pill" id="statusPill"><span class="sdot"></span><span id="statusText">CONNECTING…</span></div>
-        <input class="name-input" id="nameInput" placeholder="Your name (optional)" maxlength="30">
-        <button class="btn danger" onclick="resetAll()" style="margin-left:auto">Close & erase</button>
+    <div class="mx-appbar">
+      <div class="mx-ava" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="21" height="21"><path fill="#ffffff" d="M12 1a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-1V6a5 5 0 0 0-5-5zm-3 8V6a3 3 0 1 1 6 0v3H9zm3 4a2 2 0 0 1 1 3.73V19a1 1 0 0 1-2 0v-2.27A2 2 0 0 1 12 13z"/></svg>
       </div>
-      <div class="chat" id="chatLog">
-        <div class="sys">Channel open. Messages are end-to-end encrypted (double ratchet) and travel directly between the two devices.</div>
+      <div class="mx-meta">
+        <div class="mx-title">CipherChat</div>
+        <div class="mx-sub"><span class="sdot" id="statusDot"></span><span id="statusText">connecting…</span></div>
       </div>
-      <div class="composer">
-        <input type="text" id="msgInput" placeholder="Type a message…" autocomplete="off" maxlength="2000">
-        <button class="btn-send" id="sendBtn" onclick="sendMsg()" aria-label="Send message"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path d="M3.4 20.4l17.4-7.5c.8-.4.8-1.5 0-1.9L3.4 3.6c-.7-.3-1.4.2-1.3 1L3.6 10c.1.5.5.8 1 .9l7.9 1.1-7.9 1.1c-.5.1-.9.4-1 .9l-1.5 5.4c-.1.8.6 1.3 1.3 1z" fill="currentColor"/></svg></button>
+      <button class="mx-close" onclick="resetAll()" title="Close & erase — everything is deleted" aria-label="Close and erase">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M18.3 5.7a1 1 0 0 0-1.42 0L12 10.59 7.11 5.7A1 1 0 1 0 5.7 7.11L10.59 12 5.7 16.89a1 1 0 1 0 1.41 1.41L12 13.41l4.89 4.89a1 1 0 0 0 1.41-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.41z"/></svg>
+      </button>
+    </div>
+    <div class="mx-strip">
+      <input class="name-input" id="nameInput" placeholder="Your name (optional) — the other person sees this" maxlength="30">
+    </div>
+    <div class="chat" id="chatLog">
+      <div class="e2ee-pill">🔒 Messages are end-to-end encrypted (double ratchet + DTLS). No server stores anything.</div>
+      <div class="date-div">TODAY</div>
+      <div class="verify-box">
+        <div class="vb-title">🔒 VERIFY — compare this code by voice call</div>
+        <div class="verify-num" id="verifyNum">computing…</div>
+        <p class="verify-note">Both devices compute this code from the live DTLS certificates and both identity keys (Signal safety-number style, 128-bit). Same code on both sides = no one in the middle.</p>
       </div>
     </div>
-
-    <div class="ve-card verify-card">
-      <div class="section-label"><span class="dot" style="background:var(--bob)"></span>Verify this channel (recommended)</div>
-      <p class="verify-note">
-        Both devices independently compute this code from the <b>live encryption certificates</b> of this connection.
-        Compare it with the other person <b>out-of-band — by voice call or in person</b>. If both devices show
-        <b>exactly the same code</b>, no third party is sitting in the middle.
-      </p>
-      <div class="verify-num" id="verifyNum">computing…</div>
-      <p class="verify-note" style="margin:0">
-        This is the same idea as Signal's safety numbers, applied to the WebRTC DTLS certificates and both identity keys (128-bit code).
-      </p>
+    <div class="composer">
+      <input type="text" id="msgInput" placeholder="Type a message" autocomplete="off" maxlength="2000">
+      <button class="btn-send" id="sendBtn" onclick="sendMsg()" aria-label="Send message"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="currentColor"/></svg></button>
     </div>
   </div>
 
@@ -651,7 +665,7 @@
     channel.onopen = function () {
       connected = true;
       show('viewChat');
-      setStatus('on', 'CONNECTED — DIRECT P2P · E2EE DOUBLE RATCHET');
+      setStatus('on', 'online · direct P2P · E2EE double ratchet');
       computeVerify();
       if (role === 'initiator') {
         ratchetEncrypt({ p: 1 }).then(function (env) {
@@ -663,7 +677,7 @@
     };
     channel.onclose = function () {
       connected = false;
-      setStatus('bad', 'CHANNEL CLOSED');
+      setStatus('bad', 'channel closed');
       disableComposer(true);
       sysLine('The other side closed the connection.');
     };
@@ -686,12 +700,12 @@
         if (!connected) {
           showError('Connection failed. This sometimes happens on strict office/campus networks that block direct device-to-device traffic. Try again from home Wi-Fi or mobile data.');
         } else {
-          setStatus('bad', 'CONNECTION LOST');
+          setStatus('bad', 'connection lost');
           sysLine('Connection lost.');
           disableComposer(true);
         }
       } else if (s === 'disconnected') {
-        setStatus('bad', 'RECONNECTING…');
+        setStatus('bad', 'reconnecting…');
       }
     };
   }
@@ -815,8 +829,8 @@
 
   // ---------- chat ----------
   function setStatus(cls, text) {
-    var p = el('statusPill');
-    p.className = 'status-pill' + (cls === 'on' ? ' on' : cls === 'bad' ? ' bad' : '');
+    var d = el('statusDot');
+    d.className = 'sdot' + (cls === 'on' ? ' on' : cls === 'bad' ? ' bad' : '');
     el('statusText').textContent = text;
   }
   function disableComposer(dis) { el('msgInput').disabled = dis; el('sendBtn').disabled = dis; }
@@ -834,7 +848,7 @@
     meta.className = 'meta';
     var t = ts ? new Date(ts) : new Date();
     var hh = t.getHours().toString().padStart(2, '0'), mm = t.getMinutes().toString().padStart(2, '0');
-    meta.textContent = name + ' \u00b7 ' + hh + ':' + mm;
+    meta.textContent = hh + ':' + mm;
     d.appendChild(meta);
     el('chatLog').appendChild(d);
     el('chatLog').scrollTop = el('chatLog').scrollHeight;
@@ -891,6 +905,8 @@
     el('genBtn').disabled = false; el('genBtn').textContent = 'Generate invite code';
     el('pasteBtn').disabled = false; el('pasteBtn').textContent = 'Generate reply code';
     el('answerBtn').disabled = false; el('answerBtn').textContent = 'Open channel';
+    var log = el('chatLog');
+    while (log.children.length > 3) log.removeChild(log.lastChild); // keep pill, date, verify box
     disableComposer(false);
     show('viewStart');
   };
