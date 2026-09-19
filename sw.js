@@ -3,7 +3,7 @@
    cache fallback (the app shell still opens when offline).
    Only the APP FILES are cached — messages and keys are never stored anywhere. */
 
-var CACHE = 'cipherchat-pwa-v1';
+var CACHE = 'cipherchat-pwa-v2';
 var ASSETS = [
   './',
   './index.html',
