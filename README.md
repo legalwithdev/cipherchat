@@ -2,9 +2,19 @@
 
 Direct device-to-device encrypted chat — no server, no accounts, no storage, no cost.
 
-**Live app:** https://legalwithdev.github.io/cipherchat/
+## Security model (v2 — forward secrecy)
 
-## What's in this repo
+Every message is sealed with its own fresh key using a Signal-style **double ratchet**:
+
+- Identity keys (ECDH P-256) are generated on each device and exchanged inside the two connection codes.
+- Each conversation turn rotates the DH key (ECDH P-256 + HKDF-SHA256), and every single message advances a symmetric chain to derive a unique AES-256-GCM message key.
+- This runs *on top of* WebRTC's DTLS transport — two independent layers.
+- The verification code (compare over a call) mixes both parties' identity keys with the DTLS certificates.
+- Replayed, duplicated, out-of-order and tampered messages are rejected.
+
+Honest limitations: this is a hobby project, **not independently audited**; both people must be online at the same time; some strict office/campus networks block direct P2P connections. For everyday messaging, audited apps like Signal remain the right tool.
+
+## What's in this package
 
 | File | Purpose |
 |---|---|
@@ -12,26 +22,60 @@ Direct device-to-device encrypted chat — no server, no accounts, no storage, n
 | `manifest.json` | Tells browsers this is an installable app (name, icons, colors) |
 | `sw.js` | Service worker — caches the app files so it opens offline; users always get the latest version when online |
 | `icons/` | App icons (regular + maskable, 192px + 512px) |
+| `README.md` | This guide |
 
 Only the APP FILES are cached on the user's device. Messages and keys are never written to disk anywhere.
 
-## How it works
+## Test it locally first (optional)
 
-- Two people open the same page on their devices.
-- Person A creates an invite code and sends it to Person B (WhatsApp/SMS/call — any channel).
-- Person B pastes it, generates a reply code, sends it back.
-- Person A pastes the reply — a direct WebRTC (DTLS-encrypted) channel opens between the two devices.
-- Both devices show a verification code computed from the live encryption certificates — compare it over a voice call; a mismatch means a man-in-the-middle.
+The service worker and install prompt need HTTPS or localhost — opening the file by double-click will NOT trigger them (the chat itself still works from file://).
 
-Messages travel directly between the two browsers. No server, database, or account exists anywhere in the pipeline.
+```bash
+cd this-folder
+python3 -m http.server 8000
+# open http://localhost:8000 in Chrome
+```
 
-## The invite button
+## Deploy on GitHub Pages — 0 cost, ~5 minutes
 
-On the start screen and the waiting screen, the "Bulao unhe WhatsApp par" button opens a pre-filled WhatsApp message (or the phone's share sheet) with the app link. Nothing is sent automatically — the sender picks the contact and presses send.
+1. Create a GitHub account (free) at github.com if you don't have one.
+2. Click **+** (top right) → **New repository**.
+   - Name: e.g. `cipherchat` (lowercase, hyphens, no spaces)
+   - Visibility: **Public** (free GitHub Pages needs public)
+   - Do NOT add README/gitignore
+3. On the empty repo page click **"uploading an existing file"**.
+4. Drag `index.html`, `manifest.json`, `sw.js` and the `icons` folder into the browser. Commit.
+5. **Settings → Pages** → Source: **Deploy from a branch** → Branch: **main**, folder **/(root)** → **Save**.
+6. Wait 1–2 minutes → your site is live at `https://YOUR-USERNAME.github.io/cipherchat/`
 
-## Updating the app
+Share that URL — click, connect, chat.
 
-Edit `index.html` in this repo (pencil icon) and commit. Users get the new version on their next visit (network-first service worker).
+## Updating the app later
+
+Open the repo → edit icon on `index.html` → paste new version → commit.
+Users get the new version on the next visit (network-first service worker).
+
+## The "Bulao unhe WhatsApp par" (invite) button
+
+On the start screen and the waiting screen there is an invite button:
+- On phones it opens the share sheet — pick WhatsApp / Telegram / SMS.
+- On desktop it opens WhatsApp Web with a pre-filled message containing your app link.
+- Nothing is ever sent automatically — you choose the contact and press send yourself.
+- This does NOT change the architecture: the chat is still 100% serverless. The invite is just a normal message you send yourself.
+
+## How users install it
+
+- **Android (Chrome):** open the URL → banner or menu (⋮) → **Install app / Add to Home screen**.
+- **iPhone/iPad (Safari):** open the URL → **Share → Add to Home Screen**.
+- **Desktop (Chrome/Edge):** install icon in the address bar, or the "Install as app" button in the app.
+
+## Verify your deployment (2-minute checklist)
+
+- [ ] URL opens with a padlock (HTTPS)
+- [ ] CipherChat icon shows on the tab
+- [ ] After one visit, airplane-mode + reopen still loads the app shell
+- [ ] Android shows the install button after a couple of visits
+- [ ] Two devices complete a connection and exchange messages
 
 ## Honest limitations
 
