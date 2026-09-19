@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CipherChat P2P — Serverless Encrypted Messenger</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#f6f7f9">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
@@ -400,7 +399,7 @@
       </p>
       <div class="verify-num" id="verifyNum">computing…</div>
       <p class="verify-note" style="margin:0">
-        This is the same idea as Signal's safety numbers, applied to the WebRTC DTLS certificates.
+        This is the same idea as Signal's safety numbers, applied to the WebRTC DTLS certificates and both identity keys (128-bit code).
       </p>
     </div>
   </div>
@@ -874,7 +873,7 @@
         var ikMix = (myKeys && myKeys.pubB64 ? myKeys.pubB64 : '') + '|' + (theirIK || '');
         var h = new Uint8Array(await crypto.subtle.digest('SHA-256', te().encode(fps.join('|') + '#' + ikMix)));
         var hex = '';
-        for (var j = 0; j < 8; j++) hex += h[j].toString(16).padStart(2, '0').toUpperCase();
+        for (var j = 0; j < 16; j++) hex += h[j].toString(16).padStart(2, '0').toUpperCase();
         el('verifyNum').textContent = hex.match(/.{4}/g).join(' ');
         return;
       }
