@@ -243,14 +243,14 @@
       <h1>Direct Device-to-Device <span class="thin">Encrypted Chat</span></h1>
     </div>
     <div class="chips">
-      <span class="chip"><b>WebRTC DTLS</b> encryption</span>
+      <span class="chip"><b>Double ratchet</b> E2EE + DTLS</span>
       <span class="chip"><b>No server</b> stores anything</span>
       <span class="chip"><b>0 cost</b> forever</span>
     </div>
   </header>
 
   <p class="lead">
-    Messages travel <b>directly between the two devices</b> over an encrypted peer-to-peer channel —
+    Messages travel <b>directly between the two devices</b> over an encrypted peer-to-peer channel, sealed with a second end-to-end layer where <b>every message gets its own fresh key</b> —
     there is no server storing, relaying or logging anything. The only thing you need is one existing
     channel (WhatsApp, SMS, a phone call) to exchange two short connection codes once.
   </p>
@@ -355,7 +355,7 @@
         <button class="btn danger" onclick="resetAll()" style="margin-left:auto">Close & erase</button>
       </div>
       <div class="chat" id="chatLog">
-        <div class="sys">Channel open. Messages travel directly between the two devices, DTLS-encrypted.</div>
+        <div class="sys">Channel open. Messages are end-to-end encrypted (double ratchet) and travel directly between the two devices.</div>
       </div>
       <div class="composer">
         <input type="text" id="msgInput" placeholder="Type a message…" autocomplete="off" maxlength="2000">
@@ -384,7 +384,7 @@
       <div class="lim-col good">
         <h3>What is genuinely true here</h3>
         <ul>
-          <li><b>Real end-to-end encryption</b> — WebRTC's DTLS layer encrypts every byte directly between the two browsers; the connection codes contain only public keys.</li>
+          <li><b>Real end-to-end encryption</b> — every message is sealed with its own key from a Signal-style double ratchet (ECDH P-256 + HKDF + AES-256-GCM), running on top of WebRTC's DTLS transport. The connection codes contain only public keys.</li>
           <li><b>No server, no database, no logs</b> — nothing is stored anywhere. Close the tab and everything is gone forever.</li>
           <li><b>MITM detection</b> — compare the verification code over a voice call; a mismatch means the channel is compromised.</li>
           <li><b>Zero cost</b> — no account, no hosting, no fees. Ever.</li>
@@ -425,6 +425,130 @@
   var PREFIX = 'CC1:';
 
   var pc = null, channel = null, role = null, connected = false;
+
+  // ---------- app-layer E2EE: double ratchet (Signal-style) ----------
+  // State: rk root key | dhs own ratchet keypair | dhr remote ratchet pub
+  //        cks/ckr send/recv chain keys | ns/nr message counters
+  var sess = null, myKeys = null, theirIK = null, sessionReady = false;
+
+  function genDH() {
+    return crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']).then(function (kp) {
+      return crypto.subtle.exportKey('raw', kp.publicKey).then(function (raw) {
+        raw = new Uint8Array(raw);
+        return { kp: kp, pub: raw, pubB64: b64e(raw) };
+      });
+    });
+  }
+  function importECDH(raw) {
+    return crypto.subtle.importKey('raw', raw, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+  }
+  function ecdhBits(priv, theirRaw) {
+    return importECDH(theirRaw).then(function (pub) {
+      return crypto.subtle.deriveBits({ name: 'ECDH', public: pub }, priv, 256);
+    }).then(function (b) { return new Uint8Array(b); });
+  }
+  function hkdf(ikm, salt, info, bits) {
+    return crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']).then(function (k) {
+      return crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: salt, info: te().encode(info) }, k, bits);
+    }).then(function (b) { return new Uint8Array(b); });
+  }
+  var SYMSALT = null; // set on first use (TextEncoder not needed eagerly)
+  function symSalt() { if (!SYMSALT) SYMSALT = te().encode('CC2-sym'); return SYMSALT; }
+  async function dhRatchetStep(rk, dhOut) {
+    var okm = await hkdf(dhOut, rk, 'CC2/dh', 512);
+    return { rk: okm.slice(0, 32), ck: okm.slice(32, 64) };
+  }
+  async function symStep(ck) {
+    var okm = await hkdf(ck, symSalt(), 'CC2/sym', 512);
+    return { ck: okm.slice(0, 32), mk: okm.slice(32, 64) };
+  }
+  async function initSession(rl) {
+    var theirRaw = b64d(theirIK);
+    var ikm = await ecdhBits(myKeys.kp.privateKey, theirRaw);
+    var salt = te().encode([myKeys.pubB64, theirIK].sort().join('|'));
+    var root = await hkdf(ikm, salt, 'CC2/root', 512);
+    var st = { rk: root.slice(0, 32), dhs: null, dhr: theirRaw, dhrB64: theirIK, cks: null, ckr: null, ns: 0, nr: 0, pending: false, skipped: {}, seen: [] };
+    if (rl === 'initiator') {
+      st.dhs = await genDH();
+      var out = await ecdhBits(st.dhs.kp.privateKey, theirRaw);
+      var step = await dhRatchetStep(st.rk, out);
+      st.rk = step.rk; st.cks = step.ck;
+    } else {
+      st.dhs = myKeys;      // first own ratchet key = identity pair
+      st.pending = true;    // cannot send until first receive (ping)
+    }
+    sess = st;
+  }
+  async function ratchetRecvStep(dhPub, dhB64) {
+    var st = sess;
+    st.dhr = dhPub; st.dhrB64 = dhB64;
+    var out = await ecdhBits(st.dhs.kp.privateKey, dhPub);
+    var step = await dhRatchetStep(st.rk, out);
+    st.rk = step.rk; st.ckr = step.ck; st.nr = 0;
+    st.pending = true; // remote rotated -> we rotate on next send
+  }
+  async function ratchetSendStep() {
+    var st = sess;
+    st.dhs = await genDH();
+    var out = await ecdhBits(st.dhs.kp.privateKey, st.dhr);
+    var step = await dhRatchetStep(st.rk, out);
+    st.rk = step.rk; st.cks = step.ck; st.ns = 0; st.pending = false;
+  }
+  async function ratchetEncrypt(payloadObj) {
+    var st = sess;
+    if (!st) throw new Error('secure session not started');
+    if (st.pending || !st.cks) await ratchetSendStep();
+    var s = await symStep(st.cks);
+    st.cks = s.ck; var n = st.ns; st.ns = n + 1;
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var key = await crypto.subtle.importKey('raw', s.mk, { name: 'AES-GCM' }, false, ['encrypt']);
+    var ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, te().encode(JSON.stringify(payloadObj)));
+    return { v: 2, e: { dh: st.dhs.pubB64, n: n, t: b64e(iv), c: b64e(new Uint8Array(ct)) } };
+  }
+  async function ratchetDecrypt(env) {
+    var st = sess;
+    if (!st || !env || typeof env.dh !== 'string' || typeof env.n !== 'number') throw new Error('bad envelope');
+    if (env.dh !== st.dhrB64) {
+      if (st.seen.indexOf(env.dh) !== -1) throw new Error('message from an old key epoch (replay/duplicate)');
+      st.seen.push(st.dhrB64);
+      if (st.seen.length > 16) st.seen.shift();
+      await ratchetRecvStep(b64d(env.dh), env.dh);
+    }
+    var n = env.n, mk = null;
+    if (n >= st.nr) {
+      if (n - st.nr > 64) throw new Error('message too far ahead — out of sync');
+      for (var i = st.nr; i < n; i++) {
+        var s0 = await symStep(st.ckr); st.ckr = s0.ck; st.skipped[i] = s0.mk;
+      }
+      var s1 = await symStep(st.ckr); st.ckr = s1.ck; st.nr = n + 1; mk = s1.mk;
+    } else {
+      mk = st.skipped[n]; delete st.skipped[n];
+      if (!mk) throw new Error('replayed or duplicate message');
+    }
+    var key = await crypto.subtle.importKey('raw', mk, { name: 'AES-GCM' }, false, ['decrypt']);
+    var pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64d(env.t) }, key, b64d(env.c));
+    return JSON.parse(new TextDecoder().decode(pt));
+  }
+  async function handleEncrypted(env) {
+    var obj = null;
+    try { obj = await ratchetDecrypt(env); }
+    catch (e) { sysLine('A message failed to decrypt (tampered or replayed) — dropped.'); return; }
+    if (!sessionReady) {
+      sessionReady = true;
+      disableComposer(false);
+      sysLine('Secure session ready — every message is sealed with its own fresh key.');
+    }
+    if (obj && typeof obj.m === 'string') appendBubble('peer', obj.n || 'Peer', obj.m, obj.ts);
+  }
+  // test/diagnostic hooks (functions only; no secrets exposed)
+  window.__cc = {
+    genIdentity: genDH,
+    setKeys: function (mine, theirs) { myKeys = mine; theirIK = theirs; },
+    initSession: initSession,
+    encrypt: ratchetEncrypt,
+    decrypt: ratchetDecrypt,
+    state: function () { return sess ? { ns: sess.ns, nr: sess.nr, dhs: sess.dhs.pubB64 } : null; }
+  };
 
   // ---------- tiny helpers ----------
   function el(id) { return document.getElementById(id); }
@@ -486,8 +610,15 @@
     channel.onopen = function () {
       connected = true;
       show('viewChat');
-      setStatus('on', 'CONNECTED — DIRECT P2P, DTLS-ENCRYPTED');
+      setStatus('on', 'CONNECTED — DIRECT P2P · E2EE DOUBLE RATCHET');
       computeVerify();
+      if (role === 'initiator') {
+        ratchetEncrypt({ p: 1 }).then(function (env) {
+          try { channel.send(JSON.stringify(env)); } catch (e) { /* channel died */ }
+        });
+      } else {
+        disableComposer(true); // joiner waits for the initiator's encrypted hello
+      }
     };
     channel.onclose = function () {
       connected = false;
@@ -498,7 +629,9 @@
     channel.onmessage = function (ev) {
       try {
         var m = JSON.parse(ev.data);
-        if (m && m.v === 1 && typeof m.m === 'string') {
+        if (m && m.v === 2 && m.e) {
+          handleEncrypted(m.e);
+        } else if (m && m.v === 1 && typeof m.m === 'string') {
           appendBubble('peer', (m.n || 'Peer'), m.m, m.ts);
         }
       } catch (e) { /* ignore malformed */ }
@@ -558,10 +691,11 @@
       monitorConn();
       channel = pc.createDataChannel('chat', { ordered: true });
       wireChannel();
+      myKeys = await genDH();
       var offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       await waitIce(5000);
-      var code = await makeCode({ t: 'offer', sdp: pc.localDescription.sdp });
+      var code = await makeCode({ t: 'offer', sdp: pc.localDescription.sdp, ik: myKeys.pubB64 });
       el('codeOut').value = code;
       el('stepShow').classList.remove('hidden');
       el('showTitle').textContent = 'Send this invite code to the other person';
@@ -581,6 +715,10 @@
     try {
       var obj = await parseCode(el('pasteBox').value);
       if (obj.t !== 'offer') throw new Error('This looks like a REPLY code, not an invite code. Paste the code the other person generated first.');
+      if (!obj.ik) throw new Error('This invite code is from an OLDER version of the app. Both people must use the updated version.');
+      theirIK = obj.ik;
+      myKeys = await genDH();
+      await initSession(role);
       pc = new RTCPeerConnection(PC_CONFIG);
       monitorConn();
       pc.ondatachannel = function (e) { channel = e.channel; wireChannel(); };
@@ -588,7 +726,7 @@
       var answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       await waitIce(5000);
-      var code = await makeCode({ t: 'answer', sdp: pc.localDescription.sdp });
+      var code = await makeCode({ t: 'answer', sdp: pc.localDescription.sdp, ik: myKeys.pubB64 });
       el('codeOut').value = code;
       el('stepShow').classList.remove('hidden');
       el('showTitle').textContent = 'Send this REPLY code back to them';
@@ -609,6 +747,9 @@
     try {
       var obj = await parseCode(el('answerBox').value);
       if (obj.t !== 'answer') throw new Error('This looks like an INVITE code, not a reply code. Paste the code the other person sent BACK to you.');
+      if (!obj.ik) throw new Error('This reply code is from an OLDER version of the app. Both people must use the updated version.');
+      theirIK = obj.ik;
+      await initSession('initiator');
       await pc.setRemoteDescription({ type: 'answer', sdp: obj.sdp });
       el('stepWait').classList.remove('hidden');
       btn.textContent = 'Done — waiting for channel';
@@ -658,18 +799,19 @@
     el('chatLog').scrollTop = el('chatLog').scrollHeight;
   }
 
-  window.sendMsg = function () {
+  window.sendMsg = async function () {
     var input = el('msgInput');
     var text = input.value.trim();
     if (!text || !connected || !channel || channel.readyState !== 'open') return;
     var name = el('nameInput').value.trim() || 'You';
-    var msg = { v: 1, n: name, m: text, ts: Date.now() };
+    var ts = Date.now();
     try {
-      channel.send(JSON.stringify(msg));
-      appendBubble('own', name, text, msg.ts);
+      var env = await ratchetEncrypt({ n: name, m: text, ts: ts });
+      channel.send(JSON.stringify(env));
+      appendBubble('own', name, text, ts);
       input.value = '';
     } catch (e) {
-      sysLine('Send failed — channel is not open.');
+      sysLine('Send failed — ' + e.message);
     }
   };
 
@@ -687,7 +829,8 @@
       } catch (e) { /* retry */ }
       if (fps.length >= 2) {
         fps.sort();
-        var h = new Uint8Array(await crypto.subtle.digest('SHA-256', te().encode(fps.join('|'))));
+        var ikMix = (myKeys && myKeys.pubB64 ? myKeys.pubB64 : '') + '|' + (theirIK || '');
+        var h = new Uint8Array(await crypto.subtle.digest('SHA-256', te().encode(fps.join('|') + '#' + ikMix)));
         var hex = '';
         for (var j = 0; j < 8; j++) hex += h[j].toString(16).padStart(2, '0').toUpperCase();
         el('verifyNum').textContent = hex.match(/.{4}/g).join(' ');
@@ -702,7 +845,7 @@
   window.resetAll = function () {
     try { if (channel) channel.close(); } catch (e) {}
     try { if (pc) pc.close(); } catch (e) {}
-    pc = null; channel = null; role = null; connected = false;
+    pc = null; channel = null; role = null; connected = false; sess = null; myKeys = null; theirIK = null; sessionReady = false;
     ['codeOut', 'pasteBox', 'answerBox'].forEach(function (id) { el(id).value = ''; });
     el('genBtn').disabled = false; el('genBtn').textContent = 'Generate invite code';
     el('pasteBtn').disabled = false; el('pasteBtn').textContent = 'Generate reply code';
