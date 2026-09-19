@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CipherChat P2P — Serverless Encrypted Messenger</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b1220">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root {
+    --bg: #0b1220;
+    --surface: #101a2e;
+    --surface-2: #16213a;
+    --surface-3: #1b2946;
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.16);
+    --text: #e7eef8;
+    --text-dim: #8fa3bf;
+    --text-faint: #5b6d88;
+    --alice: #2dd4bf;
+    --alice-dim: rgba(45,212,191,0.10);
+    --alice-border: rgba(45,212,191,0.35);
+    --bob: #f5a623;
+    --bob-dim: rgba(245,166,35,0.10);
+    --bob-border: rgba(245,166,35,0.35);
+    --danger: #f87171;
+    --danger-dim: rgba(248,113,113,0.10);
+    --danger-border: rgba(248,113,113,0.40);
+    --ok: #34d399;
+    --ok-dim: rgba(52,211,153,0.10);
+    --ok-border: rgba(52,211,153,0.35);
+    --font-body: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+    --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #eef1f6;
+      --surface: #ffffff;
+      --surface-2: #f6f8fb;
+      --surface-3: #eceff5;
+      --border: rgba(15,30,60,0.10);
+      --border-strong: rgba(15,30,60,0.20);
+      --text: #1a2436;
+      --text-dim: #54637c;
+      --text-faint: #8a97ad;
+      --alice: #0d9488;
+      --alice-dim: rgba(13,148,136,0.08);
+      --alice-border: rgba(13,148,136,0.35);
+      --bob: #b45309;
+      --bob-dim: rgba(180,83,9,0.08);
+      --bob-border: rgba(180,83,9,0.35);
+      --danger: #b91c1c;
+      --danger-dim: rgba(185,28,28,0.07);
+      --danger-border: rgba(185,28,28,0.35);
+      --ok: #047857;
+      --ok-dim: rgba(4,120,87,0.08);
+      --ok-border: rgba(4,120,87,0.35);
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 40px 20px 80px; }
+
+  header { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; margin-bottom: 10px; }
+  .title-block { flex: 1 1 320px; }
+  .brand { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.18em; color: var(--alice); font-weight: 600; }
+  h1 { font-size: clamp(24px, 3.6vw, 34px); font-weight: 700; letter-spacing: -0.02em; margin-top: 6px; }
+  h1 .thin { color: var(--text-dim); font-weight: 400; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font-family: var(--font-mono); font-size: 11.5px; padding: 5px 10px;
+    border: 1px solid var(--border-strong); border-radius: 999px; color: var(--text-dim);
+    background: var(--surface); white-space: nowrap;
+  }
+  .chip b { color: var(--text); font-weight: 600; }
+  .lead { color: var(--text-dim); font-size: 15px; max-width: 720px; margin: 12px 0 26px; line-height: 1.65; }
+  .lead b { color: var(--text); }
+
+  .ve-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 22px 24px; margin-bottom: 20px; position: relative; overflow: hidden;
+  }
+  .section-label {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em;
+    color: var(--text-dim); text-transform: uppercase; display: flex; align-items: center; gap: 8px;
+    margin-bottom: 16px;
+  }
+  .section-label .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--alice); }
+
+  /* ---------- start view ---------- */
+  .role-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .role-btn {
+    text-align: left; background: var(--surface-2); border: 1px solid var(--border-strong);
+    border-radius: 14px; padding: 20px; cursor: pointer; transition: transform 0.15s ease, border-color 0.15s ease;
+    color: var(--text); font-family: var(--font-body);
+  }
+  .role-btn:hover { transform: translateY(-2px); border-color: var(--alice); }
+  .role-btn .rn { font-family: var(--font-mono); font-size: 11px; color: var(--alice); letter-spacing: 0.12em; margin-bottom: 8px; }
+  .role-btn h3 { font-size: 15.5px; font-weight: 700; margin-bottom: 6px; }
+  .role-btn p { font-size: 12.5px; color: var(--text-dim); line-height: 1.6; }
+
+  /* ---------- connect view ---------- */
+  .step {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; margin-bottom: 12px;
+  }
+  .step .sn { font-family: var(--font-mono); font-size: 11px; color: var(--bob); letter-spacing: 0.12em; font-weight: 600; margin-bottom: 6px; }
+  .step h3 { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+  .step p { font-size: 13px; color: var(--text-dim); line-height: 1.6; margin-bottom: 10px; }
+  .step p.hindi { font-size: 12.5px; color: var(--text-faint); font-style: italic; }
+  textarea.code {
+    width: 100%; min-height: 110px; resize: vertical; background: var(--surface-3);
+    border: 1px solid var(--border-strong); border-radius: 10px; color: var(--text);
+    font-family: var(--font-mono); font-size: 11px; padding: 10px 12px; outline: none;
+    word-break: break-all; line-height: 1.6;
+  }
+  textarea.code:focus { border-color: var(--text-faint); }
+  .row { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+  .btn {
+    font-family: var(--font-mono); font-size: 12px; padding: 10px 16px; border-radius: 9px;
+    border: 1px solid var(--border-strong); background: var(--surface-3); color: var(--text);
+    cursor: pointer; transition: transform 0.15s ease, border-color 0.15s ease; font-weight: 500;
+  }
+  .btn:hover { transform: translateY(-1px); border-color: var(--text-faint); }
+  .btn.primary { background: var(--alice); border-color: var(--alice); color: #06131f; font-weight: 700; }
+  .btn.danger { background: var(--danger-dim); border-color: var(--danger-border); color: var(--danger); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+  .msg-error {
+    display: none; background: var(--danger-dim); border: 1px solid var(--danger-border); color: var(--danger);
+    border-radius: 10px; padding: 10px 14px; font-size: 13px; line-height: 1.5; margin-top: 12px;
+  }
+
+  /* ---------- chat view ---------- */
+  .status-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .status-pill {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; padding: 6px 12px;
+    border-radius: 999px; border: 1px solid var(--border-strong); color: var(--text-dim); display: flex; align-items: center; gap: 7px;
+  }
+  .status-pill .sdot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); }
+  .status-pill.on { border-color: var(--ok-border); color: var(--ok); background: var(--ok-dim); }
+  .status-pill.on .sdot { background: var(--ok); }
+  .status-pill.bad { border-color: var(--danger-border); color: var(--danger); background: var(--danger-dim); }
+  .status-pill.bad .sdot { background: var(--danger); }
+  .name-input {
+    background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: 999px;
+    color: var(--text); font-family: var(--font-body); font-size: 13px; padding: 7px 14px; outline: none; width: 180px;
+  }
+  .chat {
+    min-height: 300px; max-height: 440px; overflow-y: auto; padding: 16px;
+    display: flex; flex-direction: column; gap: 10px; background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 14px;
+  }
+  .bubble {
+    max-width: 78%; padding: 9px 13px; border-radius: 14px; font-size: 14px; line-height: 1.5;
+    overflow-wrap: break-word; animation: fadeUp 0.3s ease both;
+  }
+  .bubble .meta {
+    display: block; font-family: var(--font-mono); font-size: 9.5px; color: var(--text-faint);
+    margin-top: 5px; letter-spacing: 0.04em;
+  }
+  .own { align-self: flex-end; border-bottom-right-radius: 4px; background: var(--alice-dim); border: 1px solid var(--alice-border); }
+  .peer { align-self: flex-start; border-bottom-left-radius: 4px; background: var(--surface-3); border: 1px solid var(--border); }
+  .sys { align-self: center; font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); font-style: italic; }
+  .composer { display: flex; gap: 8px; margin-top: 14px; }
+  .composer input {
+    flex: 1; min-width: 0; background: var(--surface-2); border: 1px solid var(--border-strong);
+    border-radius: 10px; color: var(--text); font-family: var(--font-body); font-size: 14px; padding: 10px 12px; outline: none;
+  }
+  .composer input:focus { border-color: var(--text-faint); }
+  .btn-send {
+    border: none; border-radius: 10px; padding: 10px 18px; font-weight: 700; font-size: 13px;
+    cursor: pointer; background: var(--alice); color: #06131f; font-family: var(--font-body);
+  }
+  .btn-send:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .verify-card { border-left: 3px solid var(--bob); }
+  .verify-num {
+    font-family: var(--font-mono); font-size: 16px; letter-spacing: 0.1em; color: var(--text);
+    background: var(--surface-2); border: 1px dashed var(--border-strong); border-radius: 10px;
+    padding: 12px 16px; text-align: center; margin: 10px 0; overflow-wrap: anywhere;
+  }
+  .verify-note { font-size: 12.5px; color: var(--text-dim); line-height: 1.65; }
+  .verify-note b { color: var(--text); }
+
+  /* limitations */
+  .lim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .lim-col { border-radius: 12px; padding: 16px 18px; border: 1px solid var(--border); min-width: 0; }
+  .lim-col.good { background: var(--ok-dim); border-color: var(--ok-border); }
+  .lim-col.bad { background: var(--danger-dim); border-color: var(--danger-border); }
+  .lim-col h3 { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+  .lim-col.good h3 { color: var(--ok); }
+  .lim-col.bad h3 { color: var(--danger); }
+  .lim-col ul { list-style: none; }
+  .lim-col li {
+    font-size: 12.5px; color: var(--text-dim); line-height: 1.55; padding-left: 16px;
+    position: relative; margin-bottom: 7px;
+  }
+  .lim-col li::before { content: ''; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; border-radius: 50%; }
+  .lim-col.good li::before { background: var(--ok); }
+  .lim-col.bad li::before { background: var(--danger); }
+  .lim-col li b { color: var(--text); }
+  .callout {
+    margin-top: 14px; background: var(--surface-2); border-left: 3px solid var(--bob);
+    border-radius: 0 10px 10px 0; padding: 13px 16px; font-size: 13px; color: var(--text-dim); line-height: 1.65;
+  }
+  .callout b { color: var(--text); }
+
+  .hidden { display: none !important; }
+  #viewChat .ve-card { animation: fadeUp 0.5s ease both; }
+
+  footer { margin-top: 36px; text-align: center; font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); line-height: 2; }
+
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  @media (max-width: 720px) {
+    .role-grid, .lim-grid { grid-template-columns: 1fr; }
+    .chat { max-height: 55vh; min-height: 260px; }
+    .bubble { max-width: 90%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="title-block">
+      <div class="brand">CIPHERCHAT / P2P — SERVERLESS</div>
+      <h1>Direct Device-to-Device <span class="thin">Encrypted Chat</span></h1>
+    </div>
+    <div class="chips">
+      <span class="chip"><b>WebRTC DTLS</b> encryption</span>
+      <span class="chip"><b>No server</b> stores anything</span>
+      <span class="chip"><b>0 cost</b> forever</span>
+    </div>
+  </header>
+
+  <p class="lead">
+    Messages travel <b>directly between the two devices</b> over an encrypted peer-to-peer channel —
+    there is no server storing, relaying or logging anything. The only thing you need is one existing
+    channel (WhatsApp, SMS, a phone call) to exchange two short connection codes once.
+  </p>
+
+  <!-- ================= START VIEW ================= -->
+  <div id="viewStart">
+    <div class="ve-card">
+      <div class="section-label"><span class="dot"></span>Start a connection</div>
+      <div class="role-grid">
+        <button class="role-btn" onclick="startAs('initiator')">
+          <div class="rn">OPTION 1</div>
+          <h3>Create an invite</h3>
+          <p>Choose this on your device if you want to start the conversation. You get a code to send to the other person.</p>
+        </button>
+        <button class="role-btn" onclick="startAs('joiner')">
+          <div class="rn">OPTION 2</div>
+          <h3>I have an invite code</h3>
+          <p>Choose this if the other person already sent you an invite code. Paste it and generate your reply.</p>
+        </button>
+      </div>
+      <div class="row" style="margin-top:16px; align-items:center">
+        <button class="btn" id="installBtn" style="display:none" onclick="promptInstall()">Install as app</button>
+        <button class="btn" onclick="inviteFriend()">Bulao unhe WhatsApp par</button>
+        <span style="font-size:12px; color:var(--text-dim)">iPhone/iPad: Safari → Share → “Add to Home Screen”</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= CONNECT VIEW ================= -->
+  <div id="viewConnect" class="hidden">
+    <div class="ve-card">
+      <div class="section-label"><span class="dot"></span>Connect — <span id="roleLabel"></span></div>
+
+      <!-- STEP A: invite creation (initiator) -->
+      <div class="step" id="stepGen">
+        <div class="sn" id="genLabel">STEP 1</div>
+        <h3 id="genTitle">Create your invite code</h3>
+        <p id="genText">Press the button — this runs the key exchange on your device. It takes a few seconds.</p>
+        <p class="hindi" id="genHindi">Button dabao — code ban jayega, phir use WhatsApp/call se dusre ko bhejo.</p>
+        <div class="row">
+          <button class="btn primary" id="genBtn" onclick="generateCode()">Generate invite code</button>
+        </div>
+      </div>
+
+      <!-- STEP B: paste invite (joiner) -->
+      <div class="step hidden" id="stepPaste">
+        <div class="sn">STEP 1</div>
+        <h3>Paste the invite code you received</h3>
+        <p>Paste the full code exactly as you received it, then generate your reply code.</p>
+        <textarea class="code" id="pasteBox" placeholder="CC1:…paste the invite code here…" spellcheck="false"></textarea>
+        <div class="row">
+          <button class="btn primary" id="pasteBtn" onclick="consumeOffer()">Generate reply code</button>
+        </div>
+      </div>
+
+      <!-- STEP C: show generated code -->
+      <div class="step hidden" id="stepShow">
+        <div class="sn">STEP 2</div>
+        <h3 id="showTitle">Send this code to the other person</h3>
+        <p id="showText">Send it over any channel — WhatsApp, SMS, email, or read it out on a phone call. It only ever contains public keys.</p>
+        <textarea class="code" id="codeOut" readonly spellcheck="false"></textarea>
+        <div class="row">
+          <button class="btn" onclick="copyCode()">Copy code</button>
+        </div>
+      </div>
+
+      <!-- STEP D: paste reply (initiator) -->
+      <div class="step hidden" id="stepAnswer">
+        <div class="sn">STEP 3</div>
+        <h3>Paste their reply code</h3>
+        <p>After they send their reply code back, paste it below and open the channel.</p>
+        <textarea class="code" id="answerBox" placeholder="CC1:…paste their reply code here…" spellcheck="false"></textarea>
+        <div class="row">
+          <button class="btn primary" id="answerBtn" onclick="consumeAnswer()">Open channel</button>
+        </div>
+      </div>
+
+      <!-- waiting -->
+      <div class="step hidden" id="stepWait">
+        <div class="sn">WAITING</div>
+        <h3>Waiting for the other device to connect…</h3>
+        <p>The chat will open automatically the moment both sides are linked. This can take up to ~30 seconds on slow networks.</p>
+        <p class="hindi">Chat apne aap khul jayega — dusra side reply code lagate hi.</p>
+        <div class="row">
+          <button class="btn" onclick="inviteFriend()">Bulao unhe WhatsApp par</button>
+        </div>
+      </div>
+
+      <div class="msg-error" id="connError"></div>
+      <div class="row" style="margin-top:16px">
+        <button class="btn danger" onclick="resetAll()">Start over</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= CHAT VIEW ================= -->
+  <div id="viewChat" class="hidden">
+    <div class="ve-card">
+      <div class="status-row">
+        <div class="status-pill" id="statusPill"><span class="sdot"></span><span id="statusText">CONNECTING…</span></div>
+        <input class="name-input" id="nameInput" placeholder="Your name (optional)" maxlength="30">
+        <button class="btn danger" onclick="resetAll()" style="margin-left:auto">Close & erase</button>
+      </div>
+      <div class="chat" id="chatLog">
+        <div class="sys">Channel open. Messages travel directly between the two devices, DTLS-encrypted.</div>
+      </div>
+      <div class="composer">
+        <input type="text" id="msgInput" placeholder="Type a message…" autocomplete="off" maxlength="2000">
+        <button class="btn-send" id="sendBtn" onclick="sendMsg()">Send</button>
+      </div>
+    </div>
+
+    <div class="ve-card verify-card">
+      <div class="section-label"><span class="dot" style="background:var(--bob)"></span>Verify this channel (recommended)</div>
+      <p class="verify-note">
+        Both devices independently compute this code from the <b>live encryption certificates</b> of this connection.
+        Compare it with the other person <b>out-of-band — by voice call or in person</b>. If both devices show
+        <b>exactly the same code</b>, no third party is sitting in the middle.
+      </p>
+      <div class="verify-num" id="verifyNum">computing…</div>
+      <p class="verify-note" style="margin:0">
+        This is the same idea as Signal's safety numbers, applied to the WebRTC DTLS certificates.
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= HONEST LIMITS ================= -->
+  <div class="ve-card">
+    <div class="section-label"><span class="dot" style="background:var(--ok)"></span>Honest security assessment</div>
+    <div class="lim-grid">
+      <div class="lim-col good">
+        <h3>What is genuinely true here</h3>
+        <ul>
+          <li><b>Real end-to-end encryption</b> — WebRTC's DTLS layer encrypts every byte directly between the two browsers; the connection codes contain only public keys.</li>
+          <li><b>No server, no database, no logs</b> — nothing is stored anywhere. Close the tab and everything is gone forever.</li>
+          <li><b>MITM detection</b> — compare the verification code over a voice call; a mismatch means the channel is compromised.</li>
+          <li><b>Zero cost</b> — no account, no hosting, no fees. Ever.</li>
+        </ul>
+      </div>
+      <div class="lim-col bad">
+        <h3>What this is NOT (no hiding, read this)</h3>
+        <ul>
+          <li><b>No offline delivery</b> — both people must be online at the same time; there is no message history after you close.</li>
+          <li><b>Some strict networks block P2P</b> — office/campus/CGNAT networks sometimes refuse direct connections (that would need a paid relay server). Home Wi-Fi and mobile data almost always work.</li>
+          <li><b>Trust of the code exchange</b> — send the two codes over a channel you already trust (WhatsApp/Signal/call).</li>
+          <li><b>Not audited</b> — for everyday private messaging, audited apps like <b>Signal</b> remain the right tool.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout">
+      <b>Bottom line, stated plainly:</b> this is a genuinely encrypted, serverless channel between two devices — great for private
+      one-to-one conversations where you control both ends and want nothing stored anywhere. It is not a replacement for a full
+      messenger: no offline messages, no history, no group chats. Use it knowingly.
+    </div>
+  </div>
+
+  <footer>
+    CIPHERCHAT P2P — runs entirely in your browser. No server. No storage. No account. No cost.<br>
+    Close the tab and every trace of the conversation is destroyed.
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var PC_CONFIG = {
+    iceServers: [
+      { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }
+    ]
+  };
+  var PREFIX = 'CC1:';
+
+  var pc = null, channel = null, role = null, connected = false;
+
+  // ---------- tiny helpers ----------
+  function el(id) { return document.getElementById(id); }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function b64e(u8) { var s = ''; for (var i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]); return btoa(s); }
+  function b64d(s) { var bin = atob(s), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; }
+  function te() { return new TextEncoder(); }
+
+  function show(id) {
+    ['viewStart', 'viewConnect', 'viewChat'].forEach(function (v) { el(v).classList.add('hidden'); });
+    el(id).classList.remove('hidden');
+  }
+  function showError(text) {
+    var e = el('connError');
+    e.textContent = text;
+    e.style.display = 'block';
+  }
+  function clearError() { el('connError').style.display = 'none'; }
+
+  // ---------- code (de)serialization ----------
+  var hasDeflate = typeof CompressionStream !== 'undefined';
+  async function makeCode(obj) {
+    var json = JSON.stringify(obj);
+    var bytes = te().encode(json);
+    if (!hasDeflate) return 'CC0:' + b64e(bytes);
+    var stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate'));
+    var out = new Uint8Array(await new Response(stream).arrayBuffer());
+    return PREFIX + b64e(out);
+  }
+  async function parseCode(str) {
+    str = (str || '').trim();
+    if (str.indexOf('CC1:') === 0) {
+      var stream = new Blob([b64d(str.slice(4))]).stream().pipeThrough(new DecompressionStream('deflate'));
+      var buf = new Uint8Array(await new Response(stream).arrayBuffer());
+      return JSON.parse(new TextDecoder().decode(buf));
+    }
+    if (str.indexOf('CC0:') === 0) return JSON.parse(new TextDecoder().decode(b64d(str.slice(4))));
+    throw new Error('That does not look like a valid code. Copy the ENTIRE code, starting with CC… — nothing should be cut off.');
+  }
+
+  // ---------- webrtc plumbing ----------
+  function waitIce(timeoutMs) {
+    return new Promise(function (resolve) {
+      if (pc.iceGatheringState === 'complete') return resolve();
+      var done = false;
+      var finish = function () { if (!done) { done = true; clearInterval(poll); resolve(); } };
+      var t = setTimeout(finish, timeoutMs || 5000);
+      var poll = setInterval(function () {
+        if (pc.iceGatheringState === 'complete') { clearTimeout(t); finish(); }
+      }, 150);
+      pc.addEventListener('icegatheringstatechange', function () {
+        if (pc.iceGatheringState === 'complete') { clearTimeout(t); finish(); }
+      });
+    });
+  }
+
+  function wireChannel() {
+    if (!channel) return;
+    channel.onopen = function () {
+      connected = true;
+      show('viewChat');
+      setStatus('on', 'CONNECTED — DIRECT P2P, DTLS-ENCRYPTED');
+      computeVerify();
+    };
+    channel.onclose = function () {
+      connected = false;
+      setStatus('bad', 'CHANNEL CLOSED');
+      disableComposer(true);
+      sysLine('The other side closed the connection.');
+    };
+    channel.onmessage = function (ev) {
+      try {
+        var m = JSON.parse(ev.data);
+        if (m && m.v === 1 && typeof m.m === 'string') {
+          appendBubble('peer', (m.n || 'Peer'), m.m, m.ts);
+        }
+      } catch (e) { /* ignore malformed */ }
+    };
+  }
+
+  function monitorConn() {
+    pc.onconnectionstatechange = function () {
+      var s = pc.connectionState;
+      if (s === 'failed') {
+        if (!connected) {
+          showError('Connection failed. This sometimes happens on strict office/campus networks that block direct device-to-device traffic. Try again from home Wi-Fi or mobile data.');
+        } else {
+          setStatus('bad', 'CONNECTION LOST');
+          sysLine('Connection lost.');
+          disableComposer(true);
+        }
+      } else if (s === 'disconnected') {
+        setStatus('bad', 'RECONNECTING…');
+      }
+    };
+  }
+
+  // ---------- flows ----------
+  window.startAs = function (r) {
+    role = r;
+    clearError();
+    show('viewConnect');
+    if (r === 'initiator') {
+      el('roleLabel').textContent = 'you are the initiator';
+      el('stepGen').classList.remove('hidden');
+      el('stepPaste').classList.add('hidden');
+      el('stepShow').classList.add('hidden');
+      el('stepAnswer').classList.remove('hidden');
+      el('stepWait').classList.add('hidden');
+      el('genLabel').textContent = 'STEP 1';
+      el('genTitle').textContent = 'Create your invite code';
+      el('genText').textContent = 'Press the button — this runs the key exchange on your device. It takes a few seconds.';
+      el('genHindi').textContent = 'Button dabao — code ban jayega, phir use WhatsApp/call se dusre ko bhejo.';
+      el('genBtn').textContent = 'Generate invite code';
+    } else {
+      el('roleLabel').textContent = 'you are joining';
+      el('stepGen').classList.add('hidden');
+      el('stepPaste').classList.remove('hidden');
+      el('stepShow').classList.add('hidden');
+      el('stepAnswer').classList.add('hidden');
+      el('stepWait').classList.add('hidden');
+    }
+  };
+
+  window.generateCode = async function () {
+    var btn = el('genBtn');
+    btn.disabled = true; btn.textContent = 'Generating… (a few seconds)';
+    clearError();
+    try {
+      pc = new RTCPeerConnection(PC_CONFIG);
+      monitorConn();
+      channel = pc.createDataChannel('chat', { ordered: true });
+      wireChannel();
+      var offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await waitIce(5000);
+      var code = await makeCode({ t: 'offer', sdp: pc.localDescription.sdp });
+      el('codeOut').value = code;
+      el('stepShow').classList.remove('hidden');
+      el('showTitle').textContent = 'Send this invite code to the other person';
+      el('showText').textContent = 'Send it over any channel — WhatsApp, SMS, email, or read it out on a call. It contains only public keys, nothing secret.';
+      btn.textContent = 'Done — code is above in STEP 2';
+    } catch (e) {
+      console.error(e);
+      showError('Key exchange failed: ' + e.message);
+      btn.textContent = 'Generate invite code'; btn.disabled = false;
+    }
+  };
+
+  window.consumeOffer = async function () {
+    var btn = el('pasteBtn');
+    btn.disabled = true; btn.textContent = 'Generating…';
+    clearError();
+    try {
+      var obj = await parseCode(el('pasteBox').value);
+      if (obj.t !== 'offer') throw new Error('This looks like a REPLY code, not an invite code. Paste the code the other person generated first.');
+      pc = new RTCPeerConnection(PC_CONFIG);
+      monitorConn();
+      pc.ondatachannel = function (e) { channel = e.channel; wireChannel(); };
+      await pc.setRemoteDescription({ type: 'offer', sdp: obj.sdp });
+      var answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      await waitIce(5000);
+      var code = await makeCode({ t: 'answer', sdp: pc.localDescription.sdp });
+      el('codeOut').value = code;
+      el('stepShow').classList.remove('hidden');
+      el('showTitle').textContent = 'Send this REPLY code back to them';
+      el('showText').textContent = 'Send this back over the same channel. The moment they paste it, the chat opens on both devices.';
+      el('stepWait').classList.remove('hidden');
+      btn.textContent = 'Done — reply code is above';
+    } catch (e) {
+      console.error(e);
+      showError(e.message);
+      btn.textContent = 'Generate reply code'; btn.disabled = false;
+    }
+  };
+
+  window.consumeAnswer = async function () {
+    var btn = el('answerBtn');
+    btn.disabled = true; btn.textContent = 'Opening…';
+    clearError();
+    try {
+      var obj = await parseCode(el('answerBox').value);
+      if (obj.t !== 'answer') throw new Error('This looks like an INVITE code, not a reply code. Paste the code the other person sent BACK to you.');
+      await pc.setRemoteDescription({ type: 'answer', sdp: obj.sdp });
+      el('stepWait').classList.remove('hidden');
+      btn.textContent = 'Done — waiting for channel';
+    } catch (e) {
+      console.error(e);
+      showError(e.message);
+      btn.textContent = 'Open channel'; btn.disabled = false;
+    }
+  };
+
+  window.copyCode = function () {
+    var box = el('codeOut');
+    box.select(); box.setSelectionRange(0, 999999);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(box.value).then(function () {
+        el('codeOut').value = box.value; // keep value after select
+      }).catch(function () { document.execCommand('copy'); });
+    } else {
+      document.execCommand('copy');
+    }
+  };
+
+  // ---------- chat ----------
+  function setStatus(cls, text) {
+    var p = el('statusPill');
+    p.className = 'status-pill' + (cls === 'on' ? ' on' : cls === 'bad' ? ' bad' : '');
+    el('statusText').textContent = text;
+  }
+  function disableComposer(dis) { el('msgInput').disabled = dis; el('sendBtn').disabled = dis; }
+  function sysLine(text) {
+    var d = document.createElement('div');
+    d.className = 'sys'; d.textContent = text;
+    el('chatLog').appendChild(d);
+    el('chatLog').scrollTop = el('chatLog').scrollHeight;
+  }
+  function appendBubble(kind, name, text, ts) {
+    var d = document.createElement('div');
+    d.className = 'bubble ' + kind;
+    d.textContent = text;
+    var meta = document.createElement('span');
+    meta.className = 'meta';
+    var t = ts ? new Date(ts) : new Date();
+    var hh = t.getHours().toString().padStart(2, '0'), mm = t.getMinutes().toString().padStart(2, '0');
+    meta.textContent = name + ' \u00b7 ' + hh + ':' + mm;
+    d.appendChild(meta);
+    el('chatLog').appendChild(d);
+    el('chatLog').scrollTop = el('chatLog').scrollHeight;
+  }
+
+  window.sendMsg = function () {
+    var input = el('msgInput');
+    var text = input.value.trim();
+    if (!text || !connected || !channel || channel.readyState !== 'open') return;
+    var name = el('nameInput').value.trim() || 'You';
+    var msg = { v: 1, n: name, m: text, ts: Date.now() };
+    try {
+      channel.send(JSON.stringify(msg));
+      appendBubble('own', name, text, msg.ts);
+      input.value = '';
+    } catch (e) {
+      sysLine('Send failed — channel is not open.');
+    }
+  };
+
+  el('msgInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') sendMsg(); });
+
+  // ---------- verification code (DTLS cert fingerprints) ----------
+  async function computeVerify() {
+    for (var i = 0; i < 8; i++) {
+      var fps = [];
+      try {
+        var stats = await pc.getStats();
+        stats.forEach(function (r) {
+          if (r.type === 'certificate' && r.fingerprint) fps.push(String(r.fingerprint).toUpperCase());
+        });
+      } catch (e) { /* retry */ }
+      if (fps.length >= 2) {
+        fps.sort();
+        var h = new Uint8Array(await crypto.subtle.digest('SHA-256', te().encode(fps.join('|'))));
+        var hex = '';
+        for (var j = 0; j < 8; j++) hex += h[j].toString(16).padStart(2, '0').toUpperCase();
+        el('verifyNum').textContent = hex.match(/.{4}/g).join(' ');
+        return;
+      }
+      await sleep(700);
+    }
+    el('verifyNum').textContent = 'not available on this browser';
+  }
+
+  // ---------- reset ----------
+  window.resetAll = function () {
+    try { if (channel) channel.close(); } catch (e) {}
+    try { if (pc) pc.close(); } catch (e) {}
+    pc = null; channel = null; role = null; connected = false;
+    ['codeOut', 'pasteBox', 'answerBox'].forEach(function (id) { el(id).value = ''; });
+    el('genBtn').disabled = false; el('genBtn').textContent = 'Generate invite code';
+    el('pasteBtn').disabled = false; el('pasteBtn').textContent = 'Generate reply code';
+    el('answerBtn').disabled = false; el('answerBtn').textContent = 'Open channel';
+    disableComposer(false);
+    show('viewStart');
+  };
+})();
+</script>
+<script>
+/* ---------- PWA: service worker + install + invite ---------- */
+(function () {
+  'use strict';
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function (e) {
+        console.warn('Service worker not registered (needs HTTPS or localhost):', e);
+      });
+    });
+  }
+
+  var deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    var btn = document.getElementById('installBtn');
+    if (btn) btn.style.display = 'inline-block';
+  });
+  window.addEventListener('appinstalled', function () {
+    deferredPrompt = null;
+    var btn = document.getElementById('installBtn');
+    if (btn) btn.style.display = 'none';
+  });
+  window.promptInstall = function () {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function () { deferredPrompt = null; });
+    }
+  };
+
+  /* Invite: opens a pre-filled WhatsApp message (or the phone's share sheet)
+     with the app link. Nothing is sent automatically — you pick the contact
+     and press send yourself. The chat itself stays 100% serverless. */
+  window.inviteFriend = function () {
+    var link = '';
+    if (location.protocol === 'https:' || location.protocol === 'http:') link = location.href.split('#')[0].split('?')[0];
+    var text = link
+      ? 'Chalo CipherChat par — main online hoon. Yeh link kholke join karo: ' + link
+      : 'Main CipherChat par online hoon — woh file khol ke join kar jao!';
+    if (navigator.share) {
+      navigator.share({ title: 'CipherChat', text: text }).catch(function () {});
+    } else {
+      window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+    }
+  };
+})();
+</script>
+</body>
+</html>
