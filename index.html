@@ -79,7 +79,7 @@
   .wrap { max-width: 830px; margin: 0 auto; padding: 0 18px 70px; }
 
   /* ---------- hero (start page) ---------- */
-  .hero { background: var(--green); margin: 0 -18px; padding: 42px 36px 96px; color: #ffffff; }
+  .hero { position: relative; background: var(--green); margin: 0 -18px; padding: 38px 36px 84px; color: #ffffff; }
   .hero .brand { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; color: rgba(255,255,255,0.75); font-weight: 600; }
   .hero h1 { font-size: clamp(26px, 4vw, 36px); font-weight: 700; letter-spacing: -0.015em; margin-top: 8px; color: #ffffff; }
   .hero h1 .thin { color: rgba(255,255,255,0.85); font-weight: 400; }
@@ -245,6 +245,26 @@
   }
   .callout b { color: var(--text); }
 
+  /* ---------- right drawer (info menu) ---------- */
+  .menu-btn { position: absolute; top: 16px; right: 16px; width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(255,255,255,0.12); color: #ffffff; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s ease; }
+  .menu-btn:hover { background: rgba(255,255,255,0.24); }
+  .tagline { color: rgba(255,255,255,0.9); font-size: 13.5px; margin-top: 10px; letter-spacing: 0.02em; }
+  .drawer-overlay { position: fixed; inset: 0; z-index: 900; background: rgba(11,20,26,0.5); }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 901; width: min(370px, 92vw); background: var(--surface); box-shadow: -8px 0 28px rgba(11,20,26,0.28); transform: translateX(105%); transition: transform 0.25s ease; display: flex; flex-direction: column; }
+  .drawer.open { transform: translateX(0); }
+  .drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px; background: var(--green); color: #ffffff; flex: 0 0 auto; }
+  .drawer-title { font-size: 15.5px; font-weight: 700; }
+  .drawer-close { width: 34px; height: 34px; border-radius: 50%; border: none; background: transparent; color: #ffffff; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s ease; }
+  .drawer-close:hover { background: rgba(255,255,255,0.14); }
+  .drawer-body { overflow-y: auto; padding: 18px 18px 26px; }
+  .drawer .lead { color: var(--text-dim); font-size: 13px; margin: 0 0 14px; }
+  .drawer .lead b { color: var(--text); }
+  .drawer .chips { margin: 0 0 18px; }
+  .drawer .chip { border-color: var(--border-strong); color: var(--text-dim); background: var(--surface-2); }
+  .drawer .chip b { color: var(--text); }
+  .drawer .lim-grid { grid-template-columns: 1fr; gap: 12px; }
+  .drawer-foot { margin-top: 20px; font-size: 11px; color: var(--text-faint); line-height: 1.8; text-align: center; }
+
   /* ---------- version-mismatch popup ---------- */
   .ver-modal {
     position: fixed; inset: 0; z-index: 999;
@@ -271,7 +291,7 @@
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
   @media (max-width: 720px) {
     .role-grid, .lim-grid { grid-template-columns: 1fr; }
-    .hero { padding: 34px 22px 84px; }
+    .hero { padding: 30px 20px 78px; }
     .chat { padding: 12px 12px 8px; }
     .bubble { max-width: 86%; }
   }
@@ -281,18 +301,12 @@
 <div class="wrap">
 
   <header class="hero">
+    <button class="menu-btn" onclick="openDrawer()" aria-label="More information" title="About & security">
+      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </button>
     <div class="brand">CIPHERCHAT / P2P — SERVERLESS</div>
     <h1>Direct Device-to-Device <span class="thin">Encrypted Chat</span></h1>
-    <div class="chips">
-      <span class="chip"><b>Double ratchet</b> E2EE + DTLS</span>
-      <span class="chip"><b>No server</b> stores anything</span>
-      <span class="chip"><b>0 cost</b> forever</span>
-    </div>
-    <p class="lead">
-    Messages travel <b>directly between the two devices</b> over an encrypted peer-to-peer channel, sealed with a second end-to-end layer where <b>every message gets its own fresh key</b> —
-    there is no server storing, relaying or logging anything. The only thing you need is one existing
-    channel (WhatsApp, SMS, a phone call) to exchange two short connection codes once.
-    </p>
+    <p class="tagline">End-to-end encrypted · No server stores anything · Free forever</p>
   </header>
 
   <!-- ================= START VIEW ================= -->
@@ -313,7 +327,6 @@
       </div>
       <div class="row" style="margin-top:16px; align-items:center">
         <button class="btn" id="installBtn" style="display:none" onclick="promptInstall()">Install as app</button>
-        <button class="btn" onclick="inviteFriend()">Bulao unhe WhatsApp par</button>
         <span style="font-size:12px; color:var(--text-dim)">iPhone/iPad: Safari → Share → “Add to Home Screen”</span>
       </div>
     </div>
@@ -374,9 +387,6 @@
         <h3>Waiting for the other device to connect…</h3>
         <p>The chat will open automatically the moment both sides are linked. This can take up to ~30 seconds on slow networks.</p>
         <p class="hindi">Chat apne aap khul jayega — dusra side reply code lagate hi.</p>
-        <div class="row">
-          <button class="btn" onclick="inviteFriend()">Bulao unhe WhatsApp par</button>
-        </div>
       </div>
 
       <div class="msg-error" id="connError"></div>
@@ -396,6 +406,9 @@
         <div class="mx-title">CipherChat</div>
         <div class="mx-sub"><span class="sdot" id="statusDot"></span><span id="statusText">connecting…</span></div>
       </div>
+      <button class="mx-close" onclick="openDrawer()" title="About & security" aria-label="More information">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+      </button>
       <button class="mx-close" onclick="resetAll()" title="Close & erase — everything is deleted" aria-label="Close and erase">
         <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M18.3 5.7a1 1 0 0 0-1.42 0L12 10.59 7.11 5.7A1 1 0 1 0 5.7 7.11L10.59 12 5.7 16.89a1 1 0 1 0 1.41 1.41L12 13.41l4.89 4.89a1 1 0 0 0 1.41-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.41z"/></svg>
       </button>
@@ -418,8 +431,27 @@
     </div>
   </div>
 
-  <!-- ================= HONEST LIMITS ================= -->
-  <div class="ve-card">
+  <!-- ================= RIGHT DRAWER (info menu) ================= -->
+  <div id="drawerOverlay" class="drawer-overlay hidden"></div>
+  <aside id="drawer" class="drawer" aria-label="About and security information">
+    <div class="drawer-head">
+      <div class="drawer-title">About & Security</div>
+      <button class="drawer-close" onclick="closeDrawer()" aria-label="Close menu">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M18.3 5.7a1 1 0 0 0-1.42 0L12 10.59 7.11 5.7A1 1 0 1 0 5.7 7.11L10.59 12 5.7 16.89a1 1 0 1 0 1.41 1.41L12 13.41l4.89 4.89a1 1 0 0 0 1.41-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.41z"/></svg>
+      </button>
+    </div>
+    <div class="drawer-body">
+      <p class="lead">
+    Messages travel <b>directly between the two devices</b> over an encrypted peer-to-peer channel, sealed with a second end-to-end layer where <b>every message gets its own fresh key</b> —
+    there is no server storing, relaying or logging anything. The only thing you need is one existing
+    channel (WhatsApp, SMS, a phone call) to exchange two short connection codes once.
+    </p>
+      <div class="chips">
+      <span class="chip"><b>Double ratchet</b> E2EE + DTLS</span>
+      <span class="chip"><b>No server</b> stores anything</span>
+      <span class="chip"><b>0 cost</b> forever</span>
+    </div>
+      <div class="ve-card">
     <div class="section-label"><span class="dot" style="background:var(--ok)"></span>Honest security assessment</div>
     <div class="lim-grid">
       <div class="lim-col good">
@@ -447,11 +479,11 @@
       messenger: no offline messages, no history, no group chats. Use it knowingly.
     </div>
   </div>
-
-  <footer>
-    CIPHERCHAT P2P — runs entirely in your browser. No server. No storage. No account. No cost.<br>
-    Close the tab and every trace of the conversation is destroyed.
-  </footer>
+      <div class="drawer-foot">CIPHERCHAT P2P — runs entirely in your browser. No server. No storage. No account. No cost.<br>
+      
+    Close the tab and every trace of the conversation is destroyed.</div>
+    </div>
+  </aside>
 </div>
 
 <div id="verModal" class="ver-modal hidden" role="dialog" aria-modal="true" aria-labelledby="verTitle">
@@ -622,6 +654,19 @@
   function clearError() { el('connError').style.display = 'none'; }
   function showVerModal() { el('verModal').classList.remove('hidden'); }
   window.closeVerModal = function () { el('verModal').classList.add('hidden'); };
+
+  // ---------- right info drawer ----------
+  function openDrawer() {
+    el('drawer').classList.add('open');
+    el('drawerOverlay').classList.remove('hidden');
+  }
+  function closeDrawer() {
+    el('drawer').classList.remove('open');
+    el('drawerOverlay').classList.add('hidden');
+  }
+  window.openDrawer = openDrawer;
+  window.closeDrawer = closeDrawer;
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDrawer(); });
 
   // ---------- code (de)serialization ----------
   var hasDeflate = typeof CompressionStream !== 'undefined';
@@ -943,21 +988,6 @@
     }
   };
 
-  /* Invite: opens a pre-filled WhatsApp message (or the phone's share sheet)
-     with the app link. Nothing is sent automatically — you pick the contact
-     and press send yourself. The chat itself stays 100% serverless. */
-  window.inviteFriend = function () {
-    var link = '';
-    if (location.protocol === 'https:' || location.protocol === 'http:') link = location.href.split('#')[0].split('?')[0];
-    var text = link
-      ? 'Chalo CipherChat par — main online hoon. Yeh link kholke join karo: ' + link
-      : 'Main CipherChat par online hoon — woh file khol ke join kar jao!';
-    if (navigator.share) {
-      navigator.share({ title: 'CipherChat', text: text }).catch(function () {});
-    } else {
-      window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
-    }
-  };
 })();
 </script>
 </body>
